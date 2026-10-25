@@ -104,7 +104,7 @@
             gap: 5px;
             margin-bottom: 6px;
         }
-        input[type="number"] {
+        input[type="text"] {
             width: 100%;
             padding: 6px;
             border-radius: 4px;
@@ -152,10 +152,10 @@
 <body>
 
     <h1>🧱 ระบบจับเวลากองปูน FiveM by 12aFaEl</h1>
-    <p class="subtitle">คลิกที่ชื่อเพื่อแก้ไขชื่อจุดปูนได้ตามต้องการ (ระบบจะเซฟชื่อให้อัตโนมัติ)</p>
+    <p class="subtitle">กรอกเวลา เช่น 30 (นาที) หรือ 13:10, 13.10 (นาที:วินาที)</p>
     
     <div class="notif-bar">
-        <button class="btn-notif" onclick="requestNotificationPermission()">🔔 กดเปิดการแจ้งเตือนบนหน้าจอคอม (Windows Notification)</button>
+        <button class="btn-notif" onclick="requestNotificationPermission()">🔔 เปิดการแจ้งเตือน (Windows / มือถือ)</button>
     </div>
 
     <div class="grid-container" id="timerContainer"></div>
@@ -170,7 +170,7 @@
             if ("Notification" in window) {
                 Notification.requestPermission().then(permission => {
                     if (permission === "granted") {
-                        alert("เปิดการแจ้งเตือนสำเร็จ! ระบบจะเด้งเตือนขวาบนจอเมื่อเหลือ 3 นาทีครับ");
+                        alert("เปิดการแจ้งเตือนสำเร็จ! ระบบจะเด้งเตือนเมื่อเหลือ 3 นาทีครับ");
                     } else {
                         alert("การแจ้งเตือนถูกปฏิเสธ โปรดเปิดอนุญาตในตั้งค่าเบราว์เซอร์");
                     }
@@ -189,7 +189,7 @@
             }
         }
 
-        // สร้างการ์ด 50 กอง + ดึงชื่อที่เคยบันทึกไว้ในเครื่องขึ้นมา
+        // สร้างการ์ด 50 กอง + โหลดชื่อเดิมที่เคยเซฟไว้
         for (let i = 1; i <= TOTAL_PUMP; i++) {
             timers.push({
                 id: i,
@@ -198,7 +198,6 @@
                 notified3Min: false
             });
 
-            // ดึงชื่อเก่าจาก localStorage ถ้าไม่มีให้ใช้คำว่า "กองที่ i"
             const savedName = localStorage.getItem(`cement_name_${i}`) || `กองที่ ${i}`;
 
             const cardHtml = `
@@ -209,7 +208,7 @@
                     </div>
                     <div class="timer-display" id="display-${i}">--:--</div>
                     <div class="input-group">
-                        <input type="number" id="input-${i}" placeholder="นาที" min="1">
+                        <input type="text" id="input-${i}" placeholder="เช่น 30 หรือ 13:10">
                     </div>
                     <div class="quick-btn-group">
                         <button class="btn-quick" onclick="quickSet(${i}, 30)">+30 นาที</button>
@@ -224,7 +223,6 @@
             container.insertAdjacentHTML('beforeend', cardHtml);
         }
 
-        // ฟังก์ชันบันทึกชื่อลงในเบราว์เซอร์
         function saveName(id, val) {
             localStorage.setItem(`cement_name_${id}`, val);
         }
@@ -234,12 +232,31 @@
             setTimer(id);
         }
 
-        function setTimer(id) {
-            const input = document.getElementById(`input-${id}`);
-            const minutes = parseInt(input.value);
+        // ฟังก์ชันแกะตัวเลขที่พิมพ์ เช่น "13:10", "13.10", "13 10" หรือ "30"
+        function parseInputToSeconds(inputStr) {
+            if (!inputStr) return 0;
+            inputStr = inputStr.trim();
             
-            if (isNaN(minutes) || minutes <= 0) {
-                alert('กรุณากรอกจำนวนนาทีให้ถูกต้องครับ');
+            // แยกด้วย : . หรือ เว้นวรรค
+            const parts = inputStr.split(/[:.\s]+/);
+            
+            if (parts.length >= 2) {
+                const mins = parseInt(parts[0]) || 0;
+                const secs = parseInt(parts[1]) || 0;
+                return (mins * 60) + secs;
+            } else {
+                // ถ้าพิมพ์มาแค่ตัวเลขเดี่ยวๆ ให้ตีเป็น "นาที"
+                const mins = parseInt(parts[0]) || 0;
+                return mins * 60;
+            }
+        }
+
+        function setTimer(id) {
+            const inputVal = document.getElementById(`input-${id}`).value;
+            const totalSecondsInput = parseInputToSeconds(inputVal);
+            
+            if (totalSecondsInput <= 0) {
+                alert('กรุณากรอกเวลาให้ถูกต้อง เช่น 30 หรือ 13:10');
                 return;
             }
 
@@ -247,7 +264,7 @@
             if (timer.interval) clearInterval(timer.interval);
 
             const now = Date.now();
-            timer.targetTime = now + (minutes * 60 * 1000);
+            timer.targetTime = now + (totalSecondsInput * 1000);
             timer.notified3Min = false;
 
             updateTimer(id);
