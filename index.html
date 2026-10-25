@@ -29,7 +29,7 @@
         }
         .notif-bar {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         .btn-notif {
             background-color: #00bcd4;
@@ -45,6 +45,71 @@
             background-color: #4caf50;
             color: #fff;
         }
+
+        /* ส่วนแสดง 10 อันดับเร่งด่วน */
+        .top10-container {
+            background-color: #1a1a1a;
+            border: 2px solid #ff9800;
+            border-radius: 10px;
+            padding: 15px;
+            max-width: 1450px;
+            margin: 0 auto 25px auto;
+            box-shadow: 0 4px 15px rgba(255, 152, 0, 0.2);
+        }
+        .top10-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ff9800;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .top10-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
+        }
+        .top10-item {
+            background-color: #262626;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 5px solid #00bcd4;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .top10-item.urgent {
+            border-left-color: #f44336;
+            background-color: #331818;
+            animation: blink 1s infinite;
+        }
+        .top10-info {
+            display: flex;
+            flex-direction: column;
+        }
+        .top10-name {
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: #fff;
+        }
+        .top10-target {
+            font-size: 0.75rem;
+            color: #888;
+        }
+        .top10-timer {
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: #ff9800;
+        }
+        .empty-top10 {
+            color: #666;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+
+        /* การ์ดปกติ 50 จุด */
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
@@ -171,14 +236,22 @@
         <button class="btn-notif" id="notifBtn" onclick="requestNotificationPermission()">🔔 เปิดการแจ้งเตือน (Windows / มือถือ)</button>
     </div>
 
+    <!-- แถบ 10 อันดับใกล้สุก -->
+    <div class="top10-container">
+        <div class="top10-title">🔥 10 อันดับจุดข้าวเหนียวใกล้สุกที่สุด (คิวเร่งด่วน)</div>
+        <div class="top10-grid" id="top10Grid">
+            <span class="empty-top10">ยังไม่มีจุดที่กำลังนับถอยหลัง...</span>
+        </div>
+    </div>
+
     <div class="grid-container" id="timerContainer"></div>
 
     <script>
         const TOTAL_PUMP = 50;
         const timers = [];
         const container = document.getElementById('timerContainer');
+        const top10Grid = document.getElementById('top10Grid');
         
-        // ตัวสร้างเสียงเตือน (Beep) ผ่านระบบเว็บ โดยไม่ต้องใช้ไฟล์เสียงภายนอก
         function playBeepSound() {
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -186,14 +259,14 @@
                 const gainNode = audioCtx.createGain();
                 
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // ความถี่เสียง
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
                 gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
                 
                 oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.5); // ดัง 0.5 วินาที
+                oscillator.stop(audioCtx.currentTime + 0.5);
             } catch (e) {
                 console.log("Audio Context Error:", e);
             }
@@ -218,36 +291,26 @@
                 Notification.requestPermission().then(permission => {
                     checkPermissionState();
                     if (permission === "granted") {
-                        alert("เปิดการแจ้งเตือนสำเร็จ! ระบบจะเด้งเตือนและมีเสียงเตือนเมื่อถึงเวลาครับ");
-                        // ทดลองส่งแจ้งเตือนเทส 1 ครั้ง
+                        alert("เปิดการแจ้งเตือนสำเร็จ!");
                         new Notification("🌾 ลาบจกข้าวเหนียว", { body: "ระบบแจ้งเตือนพร้อมใช้งานแล้ว!" });
-                    } else {
-                        alert("การแจ้งเตือนถูกปฏิเสธ โปรดไปที่รูปกุญแจ/การตั้งค่ามุมซ้ายบนของเบราว์เซอร์เพื่อกดอนุญาต (Permission)");
                     }
                 });
-            } else {
-                alert("เบราว์เซอร์นี้ไม่รองรับระบบแจ้งเตือน");
             }
         }
 
         function sendDesktopNotification(title, body) {
-            // เล่นเสียงเตือนสำรองเสมอ (ได้ยินแน่นอนแม้พับจอ)
             playBeepSound();
-
             if ("Notification" in window && Notification.permission === "granted") {
                 try {
                     new Notification(title, {
                         body: body,
                         icon: "https://cdn-icons-png.flaticon.com/512/3602/3602145.png",
-                        requireInteraction: true // ให้ป๊อปอัปค้างไว้จนกว่าผู้ใช้จะกดปิด (รองรับบางเบราว์เซอร์)
+                        requireInteraction: true
                     });
-                } catch (err) {
-                    console.log("Notification send error: ", err);
-                }
+                } catch (err) {}
             }
         }
 
-        // โหลดหน้าเว็บปุ๊บ เช็คสถานะสิทธิ์ทันที
         window.addEventListener('DOMContentLoaded', () => {
             checkPermissionState();
         });
@@ -297,6 +360,7 @@
 
         function saveName(id, val) {
             localStorage.setItem(`sticky_rice_name_${id}`, val);
+            updateTop10Display();
         }
 
         function saveNotifTime(id, val) {
@@ -373,24 +437,79 @@
 
             display.innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-            // แจ้งเตือนเมื่อถึงเวลาล่วงคนที่ตั้งไว้
             if (remainingSeconds <= alertThresholdSec && remainingSeconds > 0 && !timer.notifiedAlert) {
                 timer.notifiedAlert = true;
-                sendDesktopNotification("⚠️ ข้าวเหนียวใกล้สุกแล้ว!", `📍 ${locationName} จะสุกแล้ว!`);
+                const remainMinsText = mins > 0 ? `${mins} นาที` : `${secs} วินาที`;
+                sendDesktopNotification("⚠️ ข้าวเหนียวใกล้สุกแล้ว!", `📍 [${locationName}] จะสุกในอีก ${remainMinsText} นี้!`);
             }
 
             card.className = 'card';
+            let finished = false;
             if (remainingSeconds <= 0) {
                 card.classList.add('danger');
                 display.innerText = "จกได้เลย!";
                 targetDisplay.innerText = "ถึงเวลาแล้ว!";
-                return true;
+                finished = true;
             } else if (remainingSeconds <= alertThresholdSec) {
                 card.classList.add('warning');
             } else {
                 card.classList.add('normal');
             }
-            return false;
+
+            updateTop10Display();
+            return finished;
+        }
+
+        // ฟังก์ชันคำนวณและจัดอันดับ Top 10 ใกล้สุกที่สุด
+        function updateTop10Display() {
+            const now = Date.now();
+            
+            // กรองเอาเฉพาะจุดที่กำลังนับเวลาอยู่
+            const activeTimers = timers.filter(t => t.targetTime !== null).map(t => {
+                const remainingSec = Math.max(0, Math.floor((t.targetTime - now) / 1000));
+                const name = document.getElementById(`name-${t.id}`).value || `จุดที่ ${t.id}`;
+                const targetDate = new Date(t.targetTime);
+                const targetHours = String(targetDate.getHours()).padStart(2, '0');
+                const targetMins = String(targetDate.getMinutes()).padStart(2, '0');
+
+                return {
+                    id: t.id,
+                    name: name,
+                    remainingSec: remainingSec,
+                    targetTimeStr: `${targetHours}:${targetMins}`
+                };
+            });
+
+            // เรียงลำดับเวลาน้อยไปมาก (ใกล้สุกก่อน)
+            activeTimers.sort((a, b) => a.remainingSec - b.remainingSec);
+
+            // ตัดมาเฉพาะ 10 อันดับแรก
+            const top10 = activeTimers.slice(0, 10);
+
+            if (top10.length === 0) {
+                top10Grid.innerHTML = `<span class="empty-top10">ยังไม่มีจุดที่กำลังนับถอยหลัง...</span>`;
+                return;
+            }
+
+            let html = '';
+            top10.forEach((item, index) => {
+                const mins = Math.floor(item.remainingSec / 60);
+                const secs = item.remainingSec % 60;
+                const timeStr = item.remainingSec <= 0 ? "จกได้เลย!" : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                const isUrgent = item.remainingSec <= 180 ? 'urgent' : '';
+
+                html += `
+                    <div class="top10-item ${isUrgent}">
+                        <div class="top10-info">
+                            <span class="top10-name">#${index + 1} ${item.name}</span>
+                            <span class="top10-target">เวลาสุก: ${item.targetTimeStr}</span>
+                        </div>
+                        <div class="top10-timer">${timeStr}</div>
+                    </div>
+                `;
+            });
+
+            top10Grid.innerHTML = html;
         }
 
         function clearTimer(id) {
@@ -404,6 +523,8 @@
             card.className = 'card';
             document.getElementById(`display-${id}`).innerText = '--:--';
             document.getElementById(`target-${id}`).innerText = 'สุก: --:--';
+
+            updateTop10Display();
         }
     </script>
 </body>
