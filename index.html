@@ -46,8 +46,8 @@
             color: #fff;
         }
 
-        /* ส่วนแสดง 10 อันดับเร่งด่วน */
-        .top10-container {
+        /* ส่วนแสดง 20 ข้าวเหนียวใกล้สุก (แบบควบคุมได้จากด้านบน) */
+        .top20-container {
             background-color: #1a1a1a;
             border: 2px solid #ff9800;
             border-radius: 10px;
@@ -56,60 +56,86 @@
             margin: 0 auto 25px auto;
             box-shadow: 0 4px 15px rgba(255, 152, 0, 0.2);
         }
-        .top10-title {
+        .top20-title {
             font-size: 1.1rem;
             font-weight: bold;
             color: #ff9800;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .top10-grid {
+        .top20-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
         }
-        .top10-item {
+        .top20-item {
             background-color: #262626;
-            padding: 10px;
-            border-radius: 6px;
+            padding: 12px;
+            border-radius: 8px;
             border-left: 5px solid #00bcd4;
+            border: 1px solid #333;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            flex-direction: column;
+            gap: 8px;
         }
-        .top10-item.urgent {
+        .top20-item.urgent {
             border-left-color: #f44336;
             background-color: #331818;
             animation: blink 1s infinite;
         }
-        .top10-info {
+        .top20-header {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
         }
-        .top10-name {
+        .top20-name-display {
             font-weight: bold;
             font-size: 0.95rem;
-            color: #fff;
-        }
-        .top10-target {
-            font-size: 0.75rem;
-            color: #888;
-        }
-        .top10-timer {
-            font-size: 1.2rem;
-            font-weight: bold;
-            font-family: monospace;
             color: #ff9800;
         }
-        .empty-top10 {
+        .top20-timer {
+            font-size: 1.3rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: #fff;
+        }
+        .top20-control {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .top20-input {
+            width: 100%;
+            padding: 4px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #1e1e1e;
+            color: white;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+        .top20-btn {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-top-start { background-color: #ff9800; color: #000; }
+        .btn-top-reset { background-color: #555; color: #fff; }
+        .empty-top20 {
             color: #666;
             font-size: 0.9rem;
             font-style: italic;
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 15px;
         }
 
-        /* การ์ดปกติ 50 จุด */
+        /* การ์ดปกติ 50 จุดด้านล่าง */
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
@@ -230,17 +256,17 @@
 <body>
 
     <h1>🌾 ลาบจกข้าวเหนียว by 12aFaEl</h1>
-    <p class="subtitle">กรอกเวลานึ่ง หรือกดปุ่มด่วน 30 / 35 / 40 นาที</p>
+    <p class="subtitle">กรอกเวลานึ่ง หรือกดปุ่มด่วนด้านบนเพื่อจัดการคิวเร่งด่วน 20 ช่อง</p>
     
     <div class="notif-bar">
         <button class="btn-notif" id="notifBtn" onclick="requestNotificationPermission()">🔔 เปิดการแจ้งเตือน (Windows / มือถือ)</button>
     </div>
 
-    <!-- แถบ 10 อันดับใกล้สุก -->
-    <div class="top10-container">
-        <div class="top10-title">🔥 10 อันดับจุดข้าวเหนียวใกล้สุกที่สุด (คิวเร่งด่วน)</div>
-        <div class="top10-grid" id="top10Grid">
-            <span class="empty-top10">ยังไม่มีจุดที่กำลังนับถอยหลัง...</span>
+    <!-- แถบ 20 ข้าวเหนียวใกล้สุก (เพิ่มช่องกรอกเวลาสั่งการจากด้านบนได้ทันที) -->
+    <div class="top20-container">
+        <div class="top20-title">🔥 20ข้าวเหนียวใกล้สุก (สามารถกรอกเวลาสั่งเริ่ม/รีเซ็ตจากตรงนี้ได้ทันที)</div>
+        <div class="top20-grid" id="top20Grid">
+            <span class="empty-top20">ยังไม่มีจุดที่กำลังนับถอยหลัง... (สามารถกดเลือกจุดด้านล่าง หรือกรอกเวลาเริ่มที่การ์ดได้เลย)</span>
         </div>
     </div>
 
@@ -250,7 +276,7 @@
         const TOTAL_PUMP = 50;
         const timers = [];
         const container = document.getElementById('timerContainer');
-        const top10Grid = document.getElementById('top10Grid');
+        const top20Grid = document.getElementById('top20Grid');
         
         function playBeepSound() {
             try {
@@ -315,7 +341,7 @@
             checkPermissionState();
         });
 
-        // สร้างการ์ด 50 จุด
+        // สร้างการ์ด 50 จุดหลัก
         for (let i = 1; i <= TOTAL_PUMP; i++) {
             timers.push({
                 id: i,
@@ -360,7 +386,7 @@
 
         function saveName(id, val) {
             localStorage.setItem(`sticky_rice_name_${id}`, val);
-            updateTop10Display();
+            updateTop20Display();
         }
 
         function saveNotifTime(id, val) {
@@ -413,6 +439,20 @@
             }, 1000);
         }
 
+        // ฟังก์ชันสั่งตั้งเวลาผ่านกรอบด้านบนโดยตรง
+        function setTimerFromTop(id) {
+            const inputVal = document.getElementById(`top-input-${id}`).value;
+            const totalSecondsInput = parseInputToSeconds(inputVal);
+            
+            if (totalSecondsInput <= 0) {
+                alert('กรุณากรอกเวลาให้ถูกต้อง เช่น 30 หรือ 13:10');
+                return;
+            }
+            // ซิงค์ค่าไปช่องล่างด้วย
+            document.getElementById(`input-${id}`).value = inputVal;
+            setTimer(id);
+        }
+
         function updateTimer(id) {
             const timer = timers.find(t => t.id === id);
             const display = document.getElementById(`display-${id}`);
@@ -456,15 +496,14 @@
                 card.classList.add('normal');
             }
 
-            updateTop10Display();
+            updateTop20Display();
             return finished;
         }
 
-        // ฟังก์ชันคำนวณและจัดอันดับ Top 10 ใกล้สุกที่สุด
-        function updateTop10Display() {
+        // อัปเดตการแสดงผล 20 อันดับด้านบน พร้อมช่องกรอกเวลาในตัว
+        function updateTop20Display() {
             const now = Date.now();
             
-            // กรองเอาเฉพาะจุดที่กำลังนับเวลาอยู่
             const activeTimers = timers.filter(t => t.targetTime !== null).map(t => {
                 const remainingSec = Math.max(0, Math.floor((t.targetTime - now) / 1000));
                 const name = document.getElementById(`name-${t.id}`).value || `จุดที่ ${t.id}`;
@@ -480,36 +519,37 @@
                 };
             });
 
-            // เรียงลำดับเวลาน้อยไปมาก (ใกล้สุกก่อน)
             activeTimers.sort((a, b) => a.remainingSec - b.remainingSec);
+            const top20 = activeTimers.slice(0, 20);
 
-            // ตัดมาเฉพาะ 10 อันดับแรก
-            const top10 = activeTimers.slice(0, 10);
-
-            if (top10.length === 0) {
-                top10Grid.innerHTML = `<span class="empty-top10">ยังไม่มีจุดที่กำลังนับถอยหลัง...</span>`;
+            if (top20.length === 0) {
+                top20Grid.innerHTML = `<span class="empty-top20">ยังไม่มีจุดที่กำลังนับถอยหลัง... (สามารถกดเริ่มจับเวลาจากช่องด้านล่าง หรือกรอกที่การ์ดได้เลย)</span>`;
                 return;
             }
 
             let html = '';
-            top10.forEach((item, index) => {
+            top20.forEach((item, index) => {
                 const mins = Math.floor(item.remainingSec / 60);
                 const secs = item.remainingSec % 60;
                 const timeStr = item.remainingSec <= 0 ? "จกได้เลย!" : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
                 const isUrgent = item.remainingSec <= 180 ? 'urgent' : '';
 
                 html += `
-                    <div class="top10-item ${isUrgent}">
-                        <div class="top10-info">
-                            <span class="top10-name">#${index + 1} ${item.name}</span>
-                            <span class="top10-target">เวลาสุก: ${item.targetTimeStr}</span>
+                    <div class="top20-item ${isUrgent}">
+                        <div class="top20-header">
+                            <span class="top20-name-display">#${index + 1} 📍 ${item.name} (${item.targetTimeStr})</span>
+                            <span class="top20-timer">${timeStr}</span>
                         </div>
-                        <div class="top10-timer">${timeStr}</div>
+                        <div class="top20-control">
+                            <input type="text" class="top20-input" id="top-input-${item.id}" placeholder="แก้เวลา เช่น 30">
+                            <button class="top20-btn btn-top-start" onclick="setTimerFromTop(${item.id})">ตั้งเวลา</button>
+                            <button class="top20-btn btn-top-reset" onclick="clearTimer(${item.id})">รีเซ็ต</button>
+                        </div>
                     </div>
                 `;
             });
 
-            top10Grid.innerHTML = html;
+            top20Grid.innerHTML = html;
         }
 
         function clearTimer(id) {
@@ -524,7 +564,7 @@
             document.getElementById(`display-${id}`).innerText = '--:--';
             document.getElementById(`target-${id}`).innerText = 'สุก: --:--';
 
-            updateTop10Display();
+            updateTop20Display();
         }
     </script>
 </body>
