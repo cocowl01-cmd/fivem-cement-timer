@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FiveM Cement Timer - 50 Piles</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 5px;
+            color: #ff9800;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 12px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .card {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 12px;
+            border: 2px solid #333;
+            transition: all 0.3s ease;
+        }
+        /* สถานะตามเวลา */
+        .card.normal { border-color: #4caf50; }
+        .card.warning { border-color: #ff9800; background-color: #2a2115; }
+        .card.danger { border-color: #f44336; background-color: #2c1515; animation: blink 1s infinite; }
+        
+        @keyframes blink {
+            50% { border-color: transparent; }
+        }
+
+        .card-header {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 6px;
+            color: #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .target-time {
+            font-size: 0.85rem;
+            color: #00bcd4;
+            background: rgba(0, 188, 212, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .timer-display {
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 6px 0;
+            font-family: monospace;
+        }
+        .input-group {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 8px;
+        }
+        input[type="number"] {
+            width: 100%;
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background-color: #2a2a2a;
+            color: white;
+            font-size: 0.95rem;
+            text-align: center;
+        }
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+        button {
+            padding: 6px;
+            border-radius: 4px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+        .btn-start { background-color: #ff9800; color: #000; }
+        .btn-reset { background-color: #555; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <h1>🧱 ระบบจับเวลากองปูน FiveM (50 กอง)</h1>
+    <p class="subtitle">กรอกเวลาที่เหลือเป็นนาที ระบบจะคำนวณเวลาเสร็จให้อัตโนมัติ</p>
+    
+    <div class="grid-container" id="timerContainer"></div>
+
+    <script>
+        const TOTAL_PUMP = 50;
+        const timers = [];
+
+        const container = document.getElementById('timerContainer');
+        
+        // สร้างการ์ด 50 กองปูน
+        for (let i = 1; i <= TOTAL_PUMP; i++) {
+            timers.push({
+                id: i,
+                targetTime: null,
+                interval: null
+            });
+
+            const cardHtml = `
+                <div class="card" id="card-${i}">
+                    <div class="card-header">
+                        <span>📍 กอง ${i}</span>
+                        <span class="target-time" id="target-${i}">เก็บ: --:--</span>
+                    </div>
+                    <div class="timer-display" id="display-${i}">--:--</div>
+                    <div class="input-group">
+                        <input type="number" id="input-${i}" placeholder="นาที" min="1">
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn-start" onclick="setTimer(${i})">เริ่มจับเวลา</button>
+                        <button class="btn-reset" onclick="clearTimer(${i})">รีเซ็ต</button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', cardHtml);
+        }
+
+        // ฟังก์ชันตั้งเวลา
+        function setTimer(id) {
+            const input = document.getElementById(`input-${id}`);
+            const minutes = parseInt(input.value);
+            
+            if (isNaN(minutes) || minutes <= 0) {
+                alert('กรุณากรอกจำนวนนาทีให้ถูกต้องครับ');
+                return;
+            }
+
+            const timer = timers.find(t => t.id === id);
+            if (timer.interval) clearInterval(timer.interval);
+
+            // คำนวณเวลาเป้าหมายจากเวลาปัจจุบัน + นาทีที่กรอก
+            const now = Date.now();
+            timer.targetTime = now + (minutes * 60 * 1000);
+
+            updateTimer(id);
+
+            // รันลูปเช็คเวลาทุกๆ 1 วินาที
+            timer.interval = setInterval(() => {
+                const finished = updateTimer(id);
+                if (finished) {
+                    clearInterval(timer.interval);
+                    timer.interval = null;
+                }
+            }, 1000);
+        }
+
+        // ฟังก์ชันอัปเดตหน้าจอและการนับถอยหลัง
+        function updateTimer(id) {
+            const timer = timers.find(t => t.id === id);
+            const display = document.getElementById(`display-${id}`);
+            const targetDisplay = document.getElementById(`target-${id}`);
+            const card = document.getElementById(`card-${id}`);
+
+            const now = Date.now();
+            const remainingMs = timer.targetTime - now;
+            const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
+
+            // แสดงเวลาเป้าหมาย (ชั่วโมง:นาที)
+            const targetDate = new Date(timer.targetTime);
+            const targetHours = String(targetDate.getHours()).padStart(2, '0');
+            const targetMins = String(targetDate.getMinutes()).padStart(2, '0');
+            targetDisplay.innerText = `เก็บ: ${targetHours}:${targetMins}`;
+
+            const mins = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+
+            display.innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+            // จัดการสีสถานะ
+            card.className = 'card';
+            if (remainingSeconds <= 0) {
+                card.classList.add('danger');
+                display.innerText = "ไปเก็บโลด!";
+                targetDisplay.innerText = "ถึงเวลาแล้ว!";
+                return true; // จบการทำงาน
+            } else if (remainingSeconds <= 300) { // เหลือน้อยกว่า 5 นาที
+                card.classList.add('warning');
+            } else {
+                card.classList.add('normal');
+            }
+            return false;
+        }
+
+        // ฟังก์ชันรีเซ็ต
+        function clearTimer(id) {
+            const timer = timers.find(t => t.id === id);
+            if (timer.interval) clearInterval(timer.interval);
+            timer.targetTime = null;
+            document.getElementById(`input-${id}`).value = '';
+            
+            const card = document.getElementById(`card-${id}`);
+            card.className = 'card';
+            document.getElementById(`display-${id}`).innerText = '--:--';
+            document.getElementById(`target-${id}`).innerText = 'เก็บ: --:--';
+        }
+    </script>
+</body>
+</html>
