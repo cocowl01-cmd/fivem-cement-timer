@@ -41,6 +41,10 @@
             border: none;
             cursor: pointer;
         }
+        .btn-notif.active {
+            background-color: #4caf50;
+            color: #fff;
+        }
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
@@ -164,7 +168,7 @@
     <p class="subtitle">กรอกเวลานึ่ง หรือกดปุ่มด่วน 30 / 35 / 40 นาที</p>
     
     <div class="notif-bar">
-        <button class="btn-notif" onclick="requestNotificationPermission()">🔔 เปิดการแจ้งเตือน (Windows / มือถือ)</button>
+        <button class="btn-notif" id="notifBtn" onclick="requestNotificationPermission()">🔔 เปิดการแจ้งเตือน (Windows / มือถือ)</button>
     </div>
 
     <div class="grid-container" id="timerContainer"></div>
@@ -172,16 +176,53 @@
     <script>
         const TOTAL_PUMP = 50;
         const timers = [];
-
         const container = document.getElementById('timerContainer');
         
+        // ตัวสร้างเสียงเตือน (Beep) ผ่านระบบเว็บ โดยไม่ต้องใช้ไฟล์เสียงภายนอก
+        function playBeepSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // ความถี่เสียง
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.5); // ดัง 0.5 วินาที
+            } catch (e) {
+                console.log("Audio Context Error:", e);
+            }
+        }
+
+        function checkPermissionState() {
+            const btn = document.getElementById('notifBtn');
+            if ("Notification" in window) {
+                if (Notification.permission === "granted") {
+                    btn.innerText = "✅ เปิดการแจ้งเตือนเรียบร้อยแล้ว";
+                    btn.classList.add('active');
+                } else if (Notification.permission === "denied") {
+                    btn.innerText = "❌ การแจ้งเตือนถูกบล็อก (ต้องปลดล็อกที่ตั้งค่าเบราว์เซอร์)";
+                    btn.style.backgroundColor = "#f44336";
+                    btn.style.color = "#fff";
+                }
+            }
+        }
+
         function requestNotificationPermission() {
             if ("Notification" in window) {
                 Notification.requestPermission().then(permission => {
+                    checkPermissionState();
                     if (permission === "granted") {
-                        alert("เปิดการแจ้งเตือนสำเร็จ! ระบบจะเด้งเตือนตามเวลาล่วงหน้าระบุไว้ครับ");
+                        alert("เปิดการแจ้งเตือนสำเร็จ! ระบบจะเด้งเตือนและมีเสียงเตือนเมื่อถึงเวลาครับ");
+                        // ทดลองส่งแจ้งเตือนเทส 1 ครั้ง
+                        new Notification("🌾 ลาบจกข้าวเหนียว", { body: "ระบบแจ้งเตือนพร้อมใช้งานแล้ว!" });
                     } else {
-                        alert("การแจ้งเตือนถูกปฏิเสธ โปรดเปิดอนุญาตในตั้งค่าเบราว์เซอร์");
+                        alert("การแจ้งเตือนถูกปฏิเสธ โปรดไปที่รูปกุญแจ/การตั้งค่ามุมซ้ายบนของเบราว์เซอร์เพื่อกดอนุญาต (Permission)");
                     }
                 });
             } else {
@@ -190,15 +231,28 @@
         }
 
         function sendDesktopNotification(title, body) {
+            // เล่นเสียงเตือนสำรองเสมอ (ได้ยินแน่นอนแม้พับจอ)
+            playBeepSound();
+
             if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(title, {
-                    body: body,
-                    icon: "https://cdn-icons-png.flaticon.com/512/3602/3602145.png"
-                });
+                try {
+                    new Notification(title, {
+                        body: body,
+                        icon: "https://cdn-icons-png.flaticon.com/512/3602/3602145.png",
+                        requireInteraction: true // ให้ป๊อปอัปค้างไว้จนกว่าผู้ใช้จะกดปิด (รองรับบางเบราว์เซอร์)
+                    });
+                } catch (err) {
+                    console.log("Notification send error: ", err);
+                }
             }
         }
 
-        // สร้างการ์ด 50 กองข้าวเหนียว
+        // โหลดหน้าเว็บปุ๊บ เช็คสถานะสิทธิ์ทันที
+        window.addEventListener('DOMContentLoaded', () => {
+            checkPermissionState();
+        });
+
+        // สร้างการ์ด 50 จุด
         for (let i = 1; i <= TOTAL_PUMP; i++) {
             timers.push({
                 id: i,
@@ -208,7 +262,7 @@
             });
 
             const savedName = localStorage.getItem(`sticky_rice_name_${i}`) || `จุดที่ ${i}`;
-            const savedNotifTime = localStorage.getItem(`sticky_rice_notif_${i}`) || "3"; // Default 3 นาที
+            const savedNotifTime = localStorage.getItem(`sticky_rice_notif_${i}`) || "3";
 
             const cardHtml = `
                 <div class="card" id="card-${i}">
@@ -224,7 +278,7 @@
                         </div>
                         <div class="input-row">
                             <span>เตือนล่วงหน้า:</span>
-                            <input type="text" id="notif-input-${i}" value="${savedNotifTime}" placeholder="เช่น 3 หรือ 2.30" onchange="saveNotifTime(${i}, this.value)">
+                            <input type="text" id="notif-input-${i}" value="${savedNotifTime}" placeholder="เช่น 3" onchange="saveNotifTime(${i}, this.value)">
                         </div>
                     </div>
                     <div class="quick-btn-group">
@@ -254,13 +308,10 @@
             setTimer(id);
         }
 
-        // ฟังก์ชันแปลงข้อความ เช่น "30", "13:10", "13.10" เป็นวินาที
         function parseInputToSeconds(inputStr) {
             if (!inputStr) return 0;
             inputStr = String(inputStr).trim();
-            
             const parts = inputStr.split(/[:.\s]+/);
-            
             if (parts.length >= 2) {
                 const mins = parseInt(parts[0]) || 0;
                 const secs = parseInt(parts[1]) || 0;
@@ -306,8 +357,7 @@
             const locationName = document.getElementById(`name-${id}`).value || `จุดที่ ${id}`;
             const notifInputVal = document.getElementById(`notif-input-${id}`).value;
 
-            // เวลาเตือนล่วงหน้า (วินาที)
-            const alertThresholdSec = parseInputToSeconds(notifInputVal) || 180; // ถ้าไม่ตั้ง ให้ default ที่ 3 นาที
+            const alertThresholdSec = parseInputToSeconds(notifInputVal) || 180;
 
             const now = Date.now();
             const remainingMs = timer.targetTime - now;
