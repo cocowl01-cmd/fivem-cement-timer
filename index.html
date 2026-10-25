@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FiveM Cement Timer by 12aFaEl</title>
+    <title>ลาบจกข้าวเหนียว by 12aFaEl</title>
     <style>
         * {
             box-sizing: border-box;
@@ -43,9 +43,9 @@
         }
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
             gap: 12px;
-            max-width: 1400px;
+            max-width: 1450px;
             margin: 0 auto;
         }
         .card {
@@ -79,7 +79,7 @@
             color: #ff9800;
             font-weight: bold;
             font-size: 0.95rem;
-            width: 110px;
+            width: 120px;
         }
         .name-input:focus {
             outline: none;
@@ -101,22 +101,31 @@
         }
         .input-group {
             display: flex;
-            gap: 5px;
+            flex-direction: column;
+            gap: 4px;
             margin-bottom: 6px;
+        }
+        .input-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 5px;
+            font-size: 0.8rem;
+            color: #aaa;
         }
         input[type="text"] {
             width: 100%;
-            padding: 6px;
+            padding: 5px;
             border-radius: 4px;
             border: 1px solid #444;
             background-color: #2a2a2a;
             color: white;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             text-align: center;
         }
         .quick-btn-group {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 4px;
             margin-bottom: 6px;
         }
@@ -151,8 +160,8 @@
 </head>
 <body>
 
-    <h1>🧱 ระบบจับเวลากองปูน FiveM by 12aFaEl</h1>
-    <p class="subtitle">กรอกเวลา เช่น 30 (นาที) หรือ 13:10, 13.10 (นาที:วินาที)</p>
+    <h1>🌾 ลาบจกข้าวเหนียว by 12aFaEl</h1>
+    <p class="subtitle">กรอกเวลานึ่ง หรือกดปุ่มด่วน 30 / 35 / 40 นาที</p>
     
     <div class="notif-bar">
         <button class="btn-notif" onclick="requestNotificationPermission()">🔔 เปิดการแจ้งเตือน (Windows / มือถือ)</button>
@@ -170,7 +179,7 @@
             if ("Notification" in window) {
                 Notification.requestPermission().then(permission => {
                     if (permission === "granted") {
-                        alert("เปิดการแจ้งเตือนสำเร็จ! ระบบจะเด้งเตือนเมื่อเหลือ 3 นาทีครับ");
+                        alert("เปิดการแจ้งเตือนสำเร็จ! ระบบจะเด้งเตือนตามเวลาล่วงหน้าระบุไว้ครับ");
                     } else {
                         alert("การแจ้งเตือนถูกปฏิเสธ โปรดเปิดอนุญาตในตั้งค่าเบราว์เซอร์");
                     }
@@ -189,30 +198,39 @@
             }
         }
 
-        // สร้างการ์ด 50 กอง + โหลดชื่อเดิมที่เคยเซฟไว้
+        // สร้างการ์ด 50 กองข้าวเหนียว
         for (let i = 1; i <= TOTAL_PUMP; i++) {
             timers.push({
                 id: i,
                 targetTime: null,
                 interval: null,
-                notified3Min: false
+                notifiedAlert: false
             });
 
-            const savedName = localStorage.getItem(`cement_name_${i}`) || `กองที่ ${i}`;
+            const savedName = localStorage.getItem(`sticky_rice_name_${i}`) || `จุดที่ ${i}`;
+            const savedNotifTime = localStorage.getItem(`sticky_rice_notif_${i}`) || "3"; // Default 3 นาที
 
             const cardHtml = `
                 <div class="card" id="card-${i}">
                     <div class="card-header">
                         <span>📍 <input type="text" class="name-input" id="name-${i}" value="${savedName}" onchange="saveName(${i}, this.value)"></span>
-                        <span class="target-time" id="target-${i}">เก็บ: --:--</span>
+                        <span class="target-time" id="target-${i}">สุก: --:--</span>
                     </div>
                     <div class="timer-display" id="display-${i}">--:--</div>
                     <div class="input-group">
-                        <input type="text" id="input-${i}" placeholder="เช่น 30 หรือ 13:10">
+                        <div class="input-row">
+                            <span>เวลานึ่ง:</span>
+                            <input type="text" id="input-${i}" placeholder="เช่น 30 หรือ 13:10">
+                        </div>
+                        <div class="input-row">
+                            <span>เตือนล่วงหน้า:</span>
+                            <input type="text" id="notif-input-${i}" value="${savedNotifTime}" placeholder="เช่น 3 หรือ 2.30" onchange="saveNotifTime(${i}, this.value)">
+                        </div>
                     </div>
                     <div class="quick-btn-group">
                         <button class="btn-quick" onclick="quickSet(${i}, 30)">+30 นาที</button>
                         <button class="btn-quick" onclick="quickSet(${i}, 35)">+35 นาที</button>
+                        <button class="btn-quick" onclick="quickSet(${i}, 40)">+40 นาที</button>
                     </div>
                     <div class="btn-group">
                         <button class="btn-start" onclick="setTimer(${i})">เริ่มจับเวลา</button>
@@ -224,7 +242,11 @@
         }
 
         function saveName(id, val) {
-            localStorage.setItem(`cement_name_${id}`, val);
+            localStorage.setItem(`sticky_rice_name_${id}`, val);
+        }
+
+        function saveNotifTime(id, val) {
+            localStorage.setItem(`sticky_rice_notif_${id}`, val);
         }
 
         function quickSet(id, mins) {
@@ -232,12 +254,11 @@
             setTimer(id);
         }
 
-        // ฟังก์ชันแกะตัวเลขที่พิมพ์ เช่น "13:10", "13.10", "13 10" หรือ "30"
+        // ฟังก์ชันแปลงข้อความ เช่น "30", "13:10", "13.10" เป็นวินาที
         function parseInputToSeconds(inputStr) {
             if (!inputStr) return 0;
-            inputStr = inputStr.trim();
+            inputStr = String(inputStr).trim();
             
-            // แยกด้วย : . หรือ เว้นวรรค
             const parts = inputStr.split(/[:.\s]+/);
             
             if (parts.length >= 2) {
@@ -245,7 +266,6 @@
                 const secs = parseInt(parts[1]) || 0;
                 return (mins * 60) + secs;
             } else {
-                // ถ้าพิมพ์มาแค่ตัวเลขเดี่ยวๆ ให้ตีเป็น "นาที"
                 const mins = parseInt(parts[0]) || 0;
                 return mins * 60;
             }
@@ -265,7 +285,7 @@
 
             const now = Date.now();
             timer.targetTime = now + (totalSecondsInput * 1000);
-            timer.notified3Min = false;
+            timer.notifiedAlert = false;
 
             updateTimer(id);
 
@@ -283,7 +303,11 @@
             const display = document.getElementById(`display-${id}`);
             const targetDisplay = document.getElementById(`target-${id}`);
             const card = document.getElementById(`card-${id}`);
-            const locationName = document.getElementById(`name-${id}`).value || `กองที่ ${id}`;
+            const locationName = document.getElementById(`name-${id}`).value || `จุดที่ ${id}`;
+            const notifInputVal = document.getElementById(`notif-input-${id}`).value;
+
+            // เวลาเตือนล่วงหน้า (วินาที)
+            const alertThresholdSec = parseInputToSeconds(notifInputVal) || 180; // ถ้าไม่ตั้ง ให้ default ที่ 3 นาที
 
             const now = Date.now();
             const remainingMs = timer.targetTime - now;
@@ -292,25 +316,26 @@
             const targetDate = new Date(timer.targetTime);
             const targetHours = String(targetDate.getHours()).padStart(2, '0');
             const targetMins = String(targetDate.getMinutes()).padStart(2, '0');
-            targetDisplay.innerText = `เก็บ: ${targetHours}:${targetMins}`;
+            targetDisplay.innerText = `สุก: ${targetHours}:${targetMins}`;
 
             const mins = Math.floor(remainingSeconds / 60);
             const secs = remainingSeconds % 60;
 
             display.innerText = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-            if (remainingSeconds <= 180 && remainingSeconds > 0 && !timer.notified3Min) {
-                timer.notified3Min = true;
-                sendDesktopNotification("⚠️ กองปูนใกล้พร้อมแล้ว!", `📍 ${locationName} เหลือเวลาอีก 3 นาทีจะจกได้!`);
+            // แจ้งเตือนเมื่อถึงเวลาล่วงคนที่ตั้งไว้
+            if (remainingSeconds <= alertThresholdSec && remainingSeconds > 0 && !timer.notifiedAlert) {
+                timer.notifiedAlert = true;
+                sendDesktopNotification("⚠️ ข้าวเหนียวใกล้สุกแล้ว!", `📍 ${locationName} จะสุกแล้ว!`);
             }
 
             card.className = 'card';
             if (remainingSeconds <= 0) {
                 card.classList.add('danger');
-                display.innerText = "ไปเก็บโลด!";
+                display.innerText = "จกได้เลย!";
                 targetDisplay.innerText = "ถึงเวลาแล้ว!";
                 return true;
-            } else if (remainingSeconds <= 180) {
+            } else if (remainingSeconds <= alertThresholdSec) {
                 card.classList.add('warning');
             } else {
                 card.classList.add('normal');
@@ -322,13 +347,13 @@
             const timer = timers.find(t => t.id === id);
             if (timer.interval) clearInterval(timer.interval);
             timer.targetTime = null;
-            timer.notified3Min = false;
+            timer.notifiedAlert = false;
             document.getElementById(`input-${id}`).value = '';
             
             const card = document.getElementById(`card-${id}`);
             card.className = 'card';
             document.getElementById(`display-${id}`).innerText = '--:--';
-            document.getElementById(`target-${id}`).innerText = 'เก็บ: --:--';
+            document.getElementById(`target-${id}`).innerText = 'สุก: --:--';
         }
     </script>
 </body>
