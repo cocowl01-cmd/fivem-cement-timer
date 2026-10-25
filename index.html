@@ -46,7 +46,7 @@
             color: #fff;
         }
 
-        /* ส่วนแสดง 20 ข้าวเหนียวใกล้สุก (แบบควบคุมได้จากด้านบน) */
+        /* ส่วนแสดง 20 ข้าวเหนียวใกล้สุก */
         .top20-container {
             background-color: #1a1a1a;
             border: 2px solid #ff9800;
@@ -67,7 +67,7 @@
         }
         .top20-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
             gap: 12px;
         }
         .top20-item {
@@ -103,6 +103,11 @@
         }
         .top20-control {
             display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .top20-row {
+            display: flex;
             gap: 5px;
             align-items: center;
         }
@@ -117,14 +122,16 @@
             text-align: center;
         }
         .top20-btn {
-            padding: 4px 8px;
-            font-size: 0.75rem;
+            padding: 4px 6px;
+            font-size: 0.7rem;
             border-radius: 4px;
             border: none;
             font-weight: bold;
             cursor: pointer;
         }
         .btn-top-start { background-color: #ff9800; color: #000; }
+        .btn-top-quick { background-color: #333; color: #aaa; border: 1px solid #444; }
+        .btn-top-quick:hover { background-color: #444; color: #fff; }
         .btn-top-reset { background-color: #555; color: #fff; }
         .empty-top20 {
             color: #666;
@@ -256,17 +263,17 @@
 <body>
 
     <h1>🌾 ลาบจกข้าวเหนียว by 12aFaEl</h1>
-    <p class="subtitle">กรอกเวลานึ่ง หรือกดปุ่มด่วนด้านบนเพื่อจัดการคิวเร่งด่วน 20 ช่อง</p>
+    <p class="subtitle">กรอกเวลานึ่ง หรือกดปุ่มด่วน 30 / 35 / 40 นาที</p>
     
     <div class="notif-bar">
         <button class="btn-notif" id="notifBtn" onclick="requestNotificationPermission()">🔔 เปิดการแจ้งเตือน (Windows / มือถือ)</button>
     </div>
 
-    <!-- แถบ 20 ข้าวเหนียวใกล้สุก (เพิ่มช่องกรอกเวลาสั่งการจากด้านบนได้ทันที) -->
+    <!-- แถบ 20 ข้าวเหนียวใกล้สุก (มีปุ่มลัด 30, 35, 40 และล็อกเวลาหมด 1 นาที) -->
     <div class="top20-container">
-        <div class="top20-title">🔥 20ข้าวเหนียวใกล้สุก (สามารถกรอกเวลาสั่งเริ่ม/รีเซ็ตจากตรงนี้ได้ทันที)</div>
+        <div class="top20-title">🔥 20ข้าวเหนียวใกล้สุก</div>
         <div class="top20-grid" id="top20Grid">
-            <span class="empty-top20">ยังไม่มีจุดที่กำลังนับถอยหลัง... (สามารถกดเลือกจุดด้านล่าง หรือกรอกเวลาเริ่มที่การ์ดได้เลย)</span>
+            <span class="empty-top20">ยังไม่มีจุดที่กำลังนับถอยหลัง...</span>
         </div>
     </div>
 
@@ -347,7 +354,8 @@
                 id: i,
                 targetTime: null,
                 interval: null,
-                notifiedAlert: false
+                notifiedAlert: false,
+                expiredAt: null // บันทึกเวลาตอนหมด เพื่อล็อกค้างไว้ 1 นาที
             });
 
             const savedName = localStorage.getItem(`sticky_rice_name_${i}`) || `จุดที่ ${i}`;
@@ -398,6 +406,11 @@
             setTimer(id);
         }
 
+        function quickSetFromTop(id, mins) {
+            document.getElementById(`top-input-${id}`).value = mins;
+            setTimerFromTop(id);
+        }
+
         function parseInputToSeconds(inputStr) {
             if (!inputStr) return 0;
             inputStr = String(inputStr).trim();
@@ -427,19 +440,18 @@
             const now = Date.now();
             timer.targetTime = now + (totalSecondsInput * 1000);
             timer.notifiedAlert = false;
+            timer.expiredAt = null; // รีเซ็ตเวลาหมดอายุ
 
             updateTimer(id);
 
             timer.interval = setInterval(() => {
                 const finished = updateTimer(id);
                 if (finished) {
-                    clearInterval(timer.interval);
-                    timer.interval = null;
+                    // ไม่เคลียร์ interval ทันที ปล่อยให้ลูปเช็คเวลาล็อก 60 วิ
                 }
             }, 1000);
         }
 
-        // ฟังก์ชันสั่งตั้งเวลาผ่านกรอบด้านบนโดยตรง
         function setTimerFromTop(id) {
             const inputVal = document.getElementById(`top-input-${id}`).value;
             const totalSecondsInput = parseInputToSeconds(inputVal);
@@ -448,7 +460,6 @@
                 alert('กรุณากรอกเวลาให้ถูกต้อง เช่น 30 หรือ 13:10');
                 return;
             }
-            // ซิงค์ค่าไปช่องล่างด้วย
             document.getElementById(`input-${id}`).value = inputVal;
             setTimer(id);
         }
@@ -464,6 +475,24 @@
             const alertThresholdSec = parseInputToSeconds(notifInputVal) || 180;
 
             const now = Date.now();
+            
+            // เช็คว่าหมดเวลาและครบ 1 นาทีที่ล็อกไว้หรือยัง
+            if (timer.expiredAt !== null) {
+                if (now - timer.expiredAt >= 60000) { // ครบ 1 นาที (60,000 ms)
+                    clearInterval(timer.interval);
+                    timer.interval = null;
+                    timer.targetTime = null;
+                    timer.expiredAt = null;
+                    card.className = 'card';
+                    display.innerText = '--:--';
+                    targetDisplay.innerText = 'สุก: --:--';
+                    updateTop20Display();
+                    return true;
+                }
+                updateTop20Display();
+                return false;
+            }
+
             const remainingMs = timer.targetTime - now;
             const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000));
 
@@ -484,12 +513,15 @@
             }
 
             card.className = 'card';
-            let finished = false;
+            let justFinished = false;
             if (remainingSeconds <= 0) {
                 card.classList.add('danger');
                 display.innerText = "จกได้เลย!";
                 targetDisplay.innerText = "ถึงเวลาแล้ว!";
-                finished = true;
+                if (timer.expiredAt === null) {
+                    timer.expiredAt = Date.now(); // บันทึกเวลาเริ่มนับถอยหลัง 1 นาทีที่จะล็อกค้างไว้
+                }
+                justFinished = true;
             } else if (remainingSeconds <= alertThresholdSec) {
                 card.classList.add('warning');
             } else {
@@ -497,33 +529,44 @@
             }
 
             updateTop20Display();
-            return finished;
+            return justFinished;
         }
 
-        // อัปเดตการแสดงผล 20 อันดับด้านบน พร้อมช่องกรอกเวลาในตัว
         function updateTop20Display() {
             const now = Date.now();
             
-            const activeTimers = timers.filter(t => t.targetTime !== null).map(t => {
-                const remainingSec = Math.max(0, Math.floor((t.targetTime - now) / 1000));
+            const activeTimers = timers.filter(t => t.targetTime !== null || t.expiredAt !== null).map(t => {
+                const isExpired = t.expiredAt !== null;
+                const remainingSec = isExpired ? 0 : Math.max(0, Math.floor((t.targetTime - now) / 1000));
                 const name = document.getElementById(`name-${t.id}`).value || `จุดที่ ${t.id}`;
-                const targetDate = new Date(t.targetTime);
-                const targetHours = String(targetDate.getHours()).padStart(2, '0');
-                const targetMins = String(targetDate.getMinutes()).padStart(2, '0');
+                
+                let targetTimeStr = "--:--";
+                if (t.targetTime !== null) {
+                    const targetDate = new Date(t.targetTime);
+                    const targetHours = String(targetDate.getHours()).padStart(2, '0');
+                    const targetMins = String(targetDate.getMinutes()).padStart(2, '0');
+                    targetTimeStr = `${targetHours}:${targetMins}`;
+                }
 
                 return {
                     id: t.id,
                     name: name,
                     remainingSec: remainingSec,
-                    targetTimeStr: `${targetHours}:${targetMins}`
+                    isExpired: isExpired,
+                    targetTimeStr: targetTimeStr
                 };
             });
 
-            activeTimers.sort((a, b) => a.remainingSec - b.remainingSec);
+            activeTimers.sort((a, b) => {
+                if (a.isExpired && !b.isExpired) return -1;
+                if (!a.isExpired && b.isExpired) return 1;
+                return a.remainingSec - b.remainingSec;
+            });
+
             const top20 = activeTimers.slice(0, 20);
 
             if (top20.length === 0) {
-                top20Grid.innerHTML = `<span class="empty-top20">ยังไม่มีจุดที่กำลังนับถอยหลัง... (สามารถกดเริ่มจับเวลาจากช่องด้านล่าง หรือกรอกที่การ์ดได้เลย)</span>`;
+                top20Grid.innerHTML = `<span class="empty-top20">ยังไม่มีจุดที่กำลังนับถอยหลัง...</span>`;
                 return;
             }
 
@@ -532,7 +575,7 @@
                 const mins = Math.floor(item.remainingSec / 60);
                 const secs = item.remainingSec % 60;
                 const timeStr = item.remainingSec <= 0 ? "จกได้เลย!" : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-                const isUrgent = item.remainingSec <= 180 ? 'urgent' : '';
+                const isUrgent = item.remainingSec <= 180 || item.isExpired ? 'urgent' : '';
 
                 html += `
                     <div class="top20-item ${isUrgent}">
@@ -541,9 +584,16 @@
                             <span class="top20-timer">${timeStr}</span>
                         </div>
                         <div class="top20-control">
-                            <input type="text" class="top20-input" id="top-input-${item.id}" placeholder="แก้เวลา เช่น 30">
-                            <button class="top20-btn btn-top-start" onclick="setTimerFromTop(${item.id})">ตั้งเวลา</button>
-                            <button class="top20-btn btn-top-reset" onclick="clearTimer(${item.id})">รีเซ็ต</button>
+                            <div class="top20-row">
+                                <input type="text" class="top20-input" id="top-input-${item.id}" placeholder="เช่น 30 หรือ 13:10">
+                                <button class="top20-btn btn-top-start" onclick="setTimerFromTop(${item.id})">ตั้งเวลา</button>
+                                <button class="top20-btn btn-top-reset" onclick="clearTimer(${item.id})">รีเซ็ต</button>
+                            </div>
+                            <div class="top20-row">
+                                <button class="top20-btn btn-top-quick" onclick="quickSetFromTop(${item.id}, 30)">+30</button>
+                                <button class="top20-btn btn-top-quick" onclick="quickSetFromTop(${item.id}, 35)">+35</button>
+                                <button class="top20-btn btn-top-quick" onclick="quickSetFromTop(${item.id}, 40)">+40</button>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -556,6 +606,7 @@
             const timer = timers.find(t => t.id === id);
             if (timer.interval) clearInterval(timer.interval);
             timer.targetTime = null;
+            timer.expiredAt = null;
             timer.notifiedAlert = false;
             document.getElementById(`input-${id}`).value = '';
             
